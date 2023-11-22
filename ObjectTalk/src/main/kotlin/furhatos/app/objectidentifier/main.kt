@@ -14,7 +14,9 @@ import kotlinx.coroutines.GlobalScope
 import zmq.ZMQ.ZMQ_SUB
 
 val logger = CommonUtils.getRootLogger()
-val objserv = "tcp://<Local ip of dev machine>:9999" //The TCP socket of the object server
+// val objserv = "tcp://<Local ip of dev machine>:9999" //The TCP socket of the object server
+val objserv = "tcp://127.0.0.1:9999" //The TCP socket of the object server
+
 
 val subSocket: ZMQ.Socket = getConnectedSocket(ZMQ_SUB, objserv) //Makes a socket of the object server
 val enter = "enter_" //Objects that enter the view start with this string

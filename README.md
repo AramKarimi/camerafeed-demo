@@ -2,6 +2,8 @@
 
 Demo that shows an external server listening to the camerafeed, doing object detection and returning the objects back to the skill.
 
+We have changed original version and insted of furhat camera, you will connect to your laptop camera and use video as a input for object detection application.
+
  1. Install Python3 and pip3, and make sure they are accessible from the command line.
 
  2. Install the python requirements (preferably in a virtual env.)

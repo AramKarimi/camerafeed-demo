@@ -1,6 +1,7 @@
 import zmq
 import numpy as np
 import cv2
+import time
 import json
 
 def detect(net, img, confidence_threshold):
@@ -112,7 +113,13 @@ with open("coco.names","r") as f:
     classes = [line.strip() for line in f.readlines()]
 
 layer_names = net.getLayerNames()
-outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+#outputlayers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+outputlayers = []
+
+for i in net.getUnconnectedOutLayers():
+    tmp = i - 1
+    tmp2 = layer_names[tmp]
+    outputlayers.append(tmp2)
 
 colors= np.random.uniform(0,255,size=(len(classes),3))
 
@@ -120,12 +127,13 @@ colors= np.random.uniform(0,255,size=(len(classes),3))
 # Setup the sockets
 context = zmq.Context()
 
-# Input camera feed from furhat using a SUB socket
-insocket = context.socket(zmq.SUB)
-insocket.setsockopt_string(zmq.SUBSCRIBE, '')
-insocket.connect('tcp://' + config["Furhat_IP"] + ':3000')
-insocket.setsockopt(zmq.RCVHWM, 1)
-insocket.setsockopt(zmq.CONFLATE, 1)  # Only read the last message to avoid lagging behind the stream.
+# Open the camera (0 is usually the default camera)
+cap = cv2.VideoCapture(0)
+
+# Check if the camera is opened successfully
+if not cap.isOpened():
+    print("Error: Could not open camera.")
+    exit()
 
 # Output results using a PUB socket
 context2 = zmq.Context()
@@ -137,21 +145,16 @@ prevset = {}
 iterations = 0
 detection_period = config["detection_period"] # Detecting objects is resource intensive, so we try to avoid detecting objects in every frame
 detection_threshold = config["detection_confidence_threshold"] # Detection threshold takes a double between 0.0 and 1.0
-x = True
-while x:
 
-    string = insocket.recv()
-    magicnumber = string[0:3]
-    print(magicnumber)
-    # check if we have a JPEG image (starts with ffd8ff)
-    if magicnumber == b'\xff\xd8\xff':
-        buf = np.frombuffer(string,dtype=np.uint8)
-        img = cv2.imdecode(buf,flags=1)
 
+while True:
+    # Capture frame-by-frame
+    ret, img = cap.read()
+
+    # If the frame is read correctly, ret will be True
+    if ret:
         if (iterations % detection_period == 0):
             print("Detecting objects!")
-            buf = np.frombuffer(string,dtype=np.uint8)
-            img = cv2.imdecode(buf,flags=1)
             height,width,channels = img.shape
             res = detect(net,img, detection_threshold)
             img2=draw(img,res)
@@ -166,9 +169,46 @@ while x:
             cv2.imshow("yolov3", img2)
 
         iterations = iterations + 1
-    
-    k = cv2.waitKey(1)
-    if k%256 == 27: # When pressing esc the program stops.
-        # ESC pressed
-        print("Escape hit, closing...")
+
+        # Break the loop when the 'q' key is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    else:
+        print("Error: Could not read frame.")
         break
+
+# x = True
+# while x:
+
+#     string = insocket.recv()
+#     magicnumber = string[0:3]
+#     print(magicnumber)
+#     # check if we have a JPEG image (starts with ffd8ff)
+#     if magicnumber == b'\xff\xd8\xff':
+#         buf = np.frombuffer(string,dtype=np.uint8)
+#         img = cv2.imdecode(buf,flags=1)
+
+#         if (iterations % detection_period == 0):
+#             print("Detecting objects!")
+#             buf = np.frombuffer(string,dtype=np.uint8)
+#             img = cv2.imdecode(buf,flags=1)
+#             height,width,channels = img.shape
+#             res = detect(net,img, detection_threshold)
+#             img2=draw(img,res)
+
+#             currset = getObjectSet(objectList(res))
+#             objdiff = compareSets(prevset,currset)
+#             if len(objdiff):
+#                 msg = ' '.join(objdiff)
+#                 outsocket.send_string(msg)
+
+#             prevset = currset
+#             cv2.imshow("yolov3", img2)
+
+#         iterations = iterations + 1
+    
+#     k = cv2.waitKey(1)
+#     if k%256 == 27: # When pressing esc the program stops.
+#         # ESC pressed
+#         print("Escape hit, closing...")
+#         break
